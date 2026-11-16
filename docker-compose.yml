@@ -1,0 +1,49 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: shiftkey-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-shiftkey}
+      POSTGRES_USER: ${POSTGRES_USER:-shiftkey}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-shiftkey}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-shiftkey} -d ${POSTGRES_DB:-shiftkey}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    # Uncomment to reach the database from your host (e.g. DBeaver / psql):
+    # ports:
+    #   - "5433:5432"
+
+  app:
+    build: .
+    container_name: shiftkey-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SHIFTKEY_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-shiftkey}:${POSTGRES_PASSWORD:-shiftkey}@db:5432/${POSTGRES_DB:-shiftkey}
+      SHIFTKEY_REPORT_NAME_SUFFIX: ${SHIFTKEY_REPORT_NAME_SUFFIX:-Expatriates}
+      SHIFTKEY_LONG_SPAN_HOURS: ${SHIFTKEY_LONG_SPAN_HOURS:-16}
+      SHIFTKEY_SEGMENT_PREFIXES: ${SHIFTKEY_SEGMENT_PREFIXES:-1:indian,2:local}
+      SHIFTKEY_ADMIN_USERNAME: ${SHIFTKEY_ADMIN_USERNAME:-admin}
+      SHIFTKEY_ADMIN_PASSWORD: ${SHIFTKEY_ADMIN_PASSWORD:-}
+      SHIFTKEY_SECURE_COOKIES: ${SHIFTKEY_SECURE_COOKIES:-false}
+      SHIFTKEY_SESSION_HOURS: ${SHIFTKEY_SESSION_HOURS:-168}
+      SHIFTKEY_SECRET_KEY: ${SHIFTKEY_SECRET_KEY:-}
+      SHIFTKEY_DATA_DIR: /srv/data
+    volumes:
+      - appdata:/srv/data
+    ports:
+      - "${SHIFTKEY_PORT:-8080}:8000"
+    # Uncomment if the Starlink SQL Server runs on this same machine (reach it as host.docker.internal):
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
+
+volumes:
+  pgdata:
+  appdata:
